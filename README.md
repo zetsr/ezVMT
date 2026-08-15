@@ -3,11 +3,7 @@ A Simple C++ VMT Hook Library
 
 ## Example
 ```cpp
-typedef void(__fastcall* tPostRender)(SDK::UGameViewportClient* _this, SDK::UCanvas* Canvas);
-tPostRender oPostRender = nullptr;
-
 void __fastcall hkPostRender(SDK::UGameViewportClient* _this, SDK::UCanvas* Canvas) {
-
     return oPostRender(_this, Canvas);
 }
 
