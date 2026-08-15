@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="ezVMT.vcxproj" Id="03b49d3c-6dbc-4813-86fe-01a4bb269f3a" />
+</Solution>

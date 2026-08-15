@@ -1,0 +1,49 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="ezVMT">
+      <UniqueIdentifier>{cbb94ac9-8d85-4c9b-8e1c-3165b92dc746}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ezVMT\include">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="ezVMT\Example">
+      <UniqueIdentifier>{48518bf5-a475-43cb-808d-efb09d0557f0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ezVMT\Example\external">
+      <UniqueIdentifier>{2a97d03f-c07b-469b-afe9-252603cf4cdf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ezVMT\Example\external\CppSDK">
+      <UniqueIdentifier>{7925d6be-2546-429d-a122-c89de1cac4be}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ezVMT\Example\external\CppSDK\SDK">
+      <UniqueIdentifier>{37293f7d-2f64-4958-958f-3c166caa0316}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ezVMT\Example\external\Shadow-Gui">
+      <UniqueIdentifier>{a865f7d0-d2e6-46ac-9311-97c35b685bf2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ezVMT\Example\external\Shadow-Gui\include">
+      <UniqueIdentifier>{347eb792-6154-4659-92e7-105b16d16f88}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\include\ezVMT.hpp">
+      <Filter>ezVMT\include</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="external\CppSDK\SDK\Basic.cpp">
+      <Filter>ezVMT\Example\external\CppSDK\SDK</Filter>
+    </ClCompile>
+    <ClCompile Include="external\CppSDK\SDK\Engine_functions.cpp">
+      <Filter>ezVMT\Example\external\CppSDK\SDK</Filter>
+    </ClCompile>
+    <ClCompile Include="external\CppSDK\SDK\CoreUObject_functions.cpp">
+      <Filter>ezVMT\Example\external\CppSDK\SDK</Filter>
+    </ClCompile>
+    <ClCompile Include="dllmain.cpp">
+      <Filter>ezVMT\Example</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
