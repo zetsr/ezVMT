@@ -3,6 +3,8 @@ A Simple C++ VMT Hook Library
 
 ## Example
 ```cpp
+#include "../include/ezVMT.hpp"
+
 void __fastcall hkPostRender(SDK::UGameViewportClient* _this, SDK::UCanvas* Canvas) {
     return oPostRender(_this, Canvas);
 }
