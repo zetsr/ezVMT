@@ -12,6 +12,8 @@ namespace ezVMT {
 
     // 内存配置常量
     constexpr DWORD VMT_ALLOC_PROTECTION = PAGE_READWRITE;
+    constexpr uint8_t DATA_CAVE_RESET_BYTE = 0x00; // Data Cave 恢复归零的目标字节值
+    constexpr size_t VMT_META_COUNT = 2;           // 虚表前缀元数据指针数量（RTTI 和 Complete Object Locator）
 
     // 内部结构体：保存 Hook 上下文信息
     struct HookEntry {
@@ -306,6 +308,33 @@ namespace ezVMT {
     }
 
     /**
+     * @brief 还原 Data Cave 内存，仅归零未被主模块修改过的字节
+     * @param shadowBuffer 影子虚表缓冲区首地址（包含前缀元数据指针）
+     * @param entry 钩子条目信息
+     */
+    inline void RevertDataCave(void** shadowBuffer, const HookEntry& entry) {
+        auto currentBytes = reinterpret_cast<uint8_t*>(shadowBuffer);
+        for (size_t i = 0; i < entry.totalCount + VMT_META_COUNT; ++i) {
+            void* expectedValue = nullptr;
+            if (i < VMT_META_COUNT) {
+                expectedValue = entry.originalVmt[static_cast<ptrdiff_t>(i) - static_cast<ptrdiff_t>(VMT_META_COUNT)];
+            }
+            else {
+                size_t funcIndex = i - VMT_META_COUNT;
+                expectedValue = (funcIndex == entry.index) ? entry.detour : entry.originalVmt[funcIndex];
+            }
+
+            const auto expectedBytes = reinterpret_cast<const uint8_t*>(&expectedValue);
+            for (size_t b = 0; b < sizeof(void*); ++b) {
+                if (currentBytes[b] == expectedBytes[b]) {
+                    currentBytes[b] = DATA_CAVE_RESET_BYTE;
+                }
+            }
+            currentBytes += sizeof(void*);
+        }
+    }
+
+    /**
      * @brief 移除并销毁钩子
      * @param detour 自定义钩子函数的地址
      * @return 成功返回 true，失败返回 false
@@ -325,7 +354,7 @@ namespace ezVMT {
                     VirtualFree(shadowBuffer, 0, MEM_RELEASE);
                 }
                 else {
-                    std::memset(shadowBuffer, 0, (entry.totalCount + 2) * sizeof(void*));
+                    RevertDataCave(shadowBuffer, entry);
                 }
             }
             g_Hooks.clear();
@@ -343,7 +372,7 @@ namespace ezVMT {
                     VirtualFree(shadowBuffer, 0, MEM_RELEASE);
                 }
                 else {
-                    std::memset(shadowBuffer, 0, (it->totalCount + 2) * sizeof(void*));
+                    RevertDataCave(shadowBuffer, *it);
                 }
 
                 g_Hooks.erase(it);
