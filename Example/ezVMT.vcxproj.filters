@@ -23,13 +23,16 @@
     <Filter Include="ezVMT\Example\external\Shadow-Gui">
       <UniqueIdentifier>{a865f7d0-d2e6-46ac-9311-97c35b685bf2}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ezVMT\Example\external\Shadow-Gui\include">
+    <Filter Include="ezVMT\Example\external\Shadow-Gui\src">
       <UniqueIdentifier>{347eb792-6154-4659-92e7-105b16d16f88}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\ezVMT.hpp">
       <Filter>ezVMT\include</Filter>
+    </ClInclude>
+    <ClInclude Include="external\Shadow-Gui\src\Shadow.h">
+      <Filter>ezVMT\Example\external\Shadow-Gui\src</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
