@@ -169,7 +169,7 @@ namespace ezVMT {
             return HookStatus::PatternInvalid;
         }
 
-        return HookStatus::Ok;
+        return HookStatus::OK;
     }
 
     // 内部结构体：保存 Hook 上下文信息
@@ -357,7 +357,7 @@ namespace ezVMT {
 
         if (expectedBytes) {
             HookStatus patternStatus = MatchBytePattern(originalFunc, expectedBytes);
-            if (patternStatus != HookStatus::Ok) {
+            if (patternStatus != HookStatus::OK) {
                 return patternStatus;
             }
         }
@@ -413,7 +413,7 @@ namespace ezVMT {
         entry.isAllocated = isAllocated;
 
         g_Hooks.push_back(entry);
-        return HookStatus::Ok;
+        return HookStatus::OK;
     }
 
     /**
