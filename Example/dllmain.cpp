@@ -51,11 +51,11 @@ void MainThread(HMODULE hModpule) {
             ezVMT::HookStatus hkActorTick_Status = ezVMT::CreateHook((void*)&hkActorTick, pWorld->PersistentLevel->Actors[0], g_ActorTick_Index, (void**)&oActorTick, 0/*, "40 53 48 83 EC ? 0F B6 81 ? ? ? ? 48 8B D9 A8 ? 75 ? A8 ? 74"*/);
 
             // 2. 启用钩子
-            if (hkPostRender_Status == ezVMT::HookStatus::Ok) {
+            if (hkPostRender_Status == ezVMT::HookStatus::OK) {
 				ezVMT::EnableHook((void*)&hkPostRender);
             }
 
-			if (hkActorTick_Status == ezVMT::HookStatus::Ok) {
+			if (hkActorTick_Status == ezVMT::HookStatus::OK) {
 				ezVMT::EnableHook((void*)&hkActorTick);
 			}
 

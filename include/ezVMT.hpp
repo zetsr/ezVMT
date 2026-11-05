@@ -17,7 +17,7 @@ namespace ezVMT {
 
     // 钩子创建/操作状态机
     enum class HookStatus : int {
-        Ok = 0,
+        OK = 0,
 
         Unknown = -1,
         InvalidArgument = 1,
