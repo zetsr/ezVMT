@@ -23,7 +23,10 @@ void __fastcall hkPostRender(SDK::UGameViewportClient* _this, SDK::UCanvas* Canv
         ezVMT::RemoveHook(ezVMT::All_Hooks);
     }
 
+    Shadow::PushFont(Shadow::DefaultFont, 2.f);
     Shadow::GetBackgroundDrawList()->AddText({ 5.f, 5.f }, {1.f, 1.f, 1.f, 1.f}, std::format("距离钩子被禁用还有 {:.1f}s", disabled_time - time));
+    Shadow::PopFont();
+    
     Shadow::Render();
 
     return oPostRender(_this, Canvas);
