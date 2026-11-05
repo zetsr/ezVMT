@@ -15,6 +15,163 @@ namespace ezVMT {
     constexpr uint8_t DATA_CAVE_RESET_BYTE = 0x00; // Data Cave 恢复归零的目标字节值
     constexpr size_t VMT_META_COUNT = 2;           // 虚表前缀元数据指针数量（RTTI 和 Complete Object Locator）
 
+    // 钩子创建/操作状态机
+    enum class HookStatus : int {
+        Ok = 0,
+
+        Unknown = -1,
+        InvalidArgument = 1,
+        AlreadyCreated,
+        NotCreated,
+        AlreadyEnabled,
+        NotEnabled,
+        InvalidModuleBase,
+        InvalidVmt,
+        InvalidFunction,
+        VmtSizeFailed,
+        IndexOutOfRange,
+        MemoryAllocationFailed,
+        MemoryProtectionFailed,
+        DataCaveNotFound,
+        PatternInvalid,
+        PatternReadFailed,
+        PatternMismatch,
+        OutOfMemory
+    };
+
+    // 检查指定内存范围是否可读，不使用 SEH
+    inline bool IsMemoryReadable(const void* address, size_t size) {
+        if (size == 0) {
+            return true;
+        }
+        if (!address) {
+            return false;
+        }
+
+        uintptr_t start = reinterpret_cast<uintptr_t>(address);
+        uintptr_t end = start + size;
+        if (end < start) {
+            return false;
+        }
+
+        uintptr_t current = start;
+        while (current < end) {
+            MEMORY_BASIC_INFORMATION mbi{};
+            if (VirtualQuery(reinterpret_cast<LPCVOID>(current), &mbi, sizeof(mbi)) == 0) {
+                return false;
+            }
+
+            if (mbi.State != MEM_COMMIT) {
+                return false;
+            }
+
+            if (mbi.Protect & PAGE_GUARD) {
+                return false;
+            }
+
+            DWORD protect = mbi.Protect & 0xFF;
+            if (protect == PAGE_NOACCESS || protect == PAGE_EXECUTE) {
+                return false;
+            }
+
+            uintptr_t regionEnd = reinterpret_cast<uintptr_t>(mbi.BaseAddress) + mbi.RegionSize;
+            if (regionEnd <= current) {
+                return false;
+            }
+
+            current = regionEnd;
+        }
+
+        return true;
+    }
+
+    inline bool IsPatternSpace(char c) {
+        return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+    }
+
+    inline bool IsHexChar(char c) {
+        return (c >= '0' && c <= '9') ||
+            (c >= 'A' && c <= 'F') ||
+            (c >= 'a' && c <= 'f');
+    }
+
+    inline uint8_t HexCharToValue(char c) {
+        if (c >= '0' && c <= '9') {
+            return static_cast<uint8_t>(c - '0');
+        }
+        if (c >= 'A' && c <= 'F') {
+            return static_cast<uint8_t>(c - 'A' + 10);
+        }
+        return static_cast<uint8_t>(c - 'a' + 10);
+    }
+
+    // 匹配函数头部机器码特征码。
+    // 支持 "?" 和 "??" 两种通配符，例如：
+    // "48 8B C4 41 54 48 83 EC ? 48 89 58 ? 48"
+    inline HookStatus MatchBytePattern(const void* address, const char* pattern) {
+        if (!address || !pattern) {
+            return HookStatus::InvalidArgument;
+        }
+
+        const uint8_t* code = reinterpret_cast<const uint8_t*>(address);
+        const char* p = pattern;
+        size_t offset = 0;
+        size_t tokenCount = 0;
+
+        while (*p) {
+            while (*p && IsPatternSpace(*p)) {
+                ++p;
+            }
+            if (!*p) {
+                break;
+            }
+
+            const char* tokenStart = p;
+            while (*p && !IsPatternSpace(*p)) {
+                ++p;
+            }
+
+            size_t tokenLength = static_cast<size_t>(p - tokenStart);
+            bool isWildcard = false;
+            uint8_t expectedValue = 0;
+
+            if (tokenLength == 1 && tokenStart[0] == '?') {
+                isWildcard = true;
+            }
+            else if (tokenLength == 2 && tokenStart[0] == '?' && tokenStart[1] == '?') {
+                isWildcard = true;
+            }
+            else if (tokenLength == 2 &&
+                IsHexChar(tokenStart[0]) &&
+                IsHexChar(tokenStart[1])) {
+                expectedValue = static_cast<uint8_t>(
+                    (HexCharToValue(tokenStart[0]) << 4) |
+                    HexCharToValue(tokenStart[1])
+                    );
+            }
+            else {
+                return HookStatus::PatternInvalid;
+            }
+
+            if (!IsMemoryReadable(code + offset, 1)) {
+                return HookStatus::PatternReadFailed;
+            }
+
+            if (!isWildcard && code[offset] != expectedValue) {
+                return HookStatus::PatternMismatch;
+            }
+
+            ++offset;
+            ++tokenCount;
+        }
+
+        if (tokenCount == 0) {
+            return HookStatus::PatternInvalid;
+        }
+
+        return HookStatus::Ok;
+    }
+
     // 内部结构体：保存 Hook 上下文信息
     struct HookEntry {
         void* detour;             // 自定义钩子函数的地址（作为主键）
@@ -157,27 +314,52 @@ namespace ezVMT {
      * @param classInstance 拥有虚表的实例指针
      * @param index 要挂钩的虚表索引
      * @param outOriginal [可选输出] 接收原函数指针
-     * @return 成功返回 true，失败返回 false
+     * @param flags 钩子操作标志
+     * @param expectedBytes [可选] 目标函数头部机器码特征码，支持 "?" 和 "??" 通配符
+     * @return 返回 HookStatus 状态枚举
      */
-    inline bool CreateHook(void* detour, void* classInstance, size_t index, void** outOriginal = nullptr, uint32_t flags = 0) {
+    inline HookStatus CreateHook(
+        void* detour,
+        void* classInstance,
+        size_t index,
+        void** outOriginal = nullptr,
+        uint32_t flags = 0,
+        const char* expectedBytes = nullptr
+    ) {
         if (!detour || !classInstance) {
-            return false;
+            return HookStatus::InvalidArgument;
         }
 
         if (FindHookEntry(detour) != nullptr) {
-            return false;
+            return HookStatus::AlreadyCreated;
         }
 
         void*** pInstance = reinterpret_cast<void***>(classInstance);
         void** originalVmt = *pInstance;
 
         if (!originalVmt) {
-            return false;
+            return HookStatus::InvalidVmt;
         }
 
         size_t totalCount = GetVMTSizeDynamic(originalVmt);
-        if (index >= totalCount || totalCount == 0) {
-            return false;
+        if (totalCount == 0) {
+            return HookStatus::VmtSizeFailed;
+        }
+
+        if (index >= totalCount) {
+            return HookStatus::IndexOutOfRange;
+        }
+
+        void* originalFunc = originalVmt[index];
+        if (!originalFunc) {
+            return HookStatus::InvalidFunction;
+        }
+
+        if (expectedBytes) {
+            HookStatus patternStatus = MatchBytePattern(originalFunc, expectedBytes);
+            if (patternStatus != HookStatus::Ok) {
+                return patternStatus;
+            }
         }
 
         size_t totalVmtBytes = (totalCount + 2) * sizeof(void*);
@@ -185,18 +367,25 @@ namespace ezVMT {
         bool isAllocated = false;
 
         if (flags & NO_Module_Stomping) {
-            shadowVMTBuffer = reinterpret_cast<void**>(VirtualAlloc(nullptr, totalVmtBytes, MEM_COMMIT | MEM_RESERVE, VMT_ALLOC_PROTECTION));
+            shadowVMTBuffer = reinterpret_cast<void**>(
+                VirtualAlloc(nullptr, totalVmtBytes, MEM_COMMIT | MEM_RESERVE, VMT_ALLOC_PROTECTION)
+                );
             if (!shadowVMTBuffer) {
-                return false;
+                return HookStatus::MemoryAllocationFailed;
             }
             isAllocated = true;
         }
         else {
-            uintptr_t gameModule = (uintptr_t)GetModuleHandleA(NULL);
+            uintptr_t gameModule = reinterpret_cast<uintptr_t>(GetModuleHandleA(NULL));
+            if (!gameModule) {
+                return HookStatus::InvalidModuleBase;
+            }
+
             uintptr_t dataCaveRaw = FindGameDataCave(gameModule, totalVmtBytes);
             if (!dataCaveRaw) {
-                return false;
+                return HookStatus::DataCaveNotFound;
             }
+
             shadowVMTBuffer = reinterpret_cast<void**>(dataCaveRaw);
             isAllocated = false;
         }
@@ -209,7 +398,7 @@ namespace ezVMT {
         customVmt[index] = detour;
 
         if (outOriginal) {
-            *outOriginal = originalVmt[index];
+            *outOriginal = originalFunc;
         }
 
         HookEntry entry;
@@ -217,14 +406,14 @@ namespace ezVMT {
         entry.classInstance = pInstance;
         entry.originalVmt = originalVmt;
         entry.customVmt = customVmt;
-        entry.originalFunc = originalVmt[index];
+        entry.originalFunc = originalFunc;
         entry.index = index;
         entry.totalCount = totalCount;
         entry.isEnabled = false;
         entry.isAllocated = isAllocated;
 
         g_Hooks.push_back(entry);
-        return true;
+        return HookStatus::Ok;
     }
 
     /**

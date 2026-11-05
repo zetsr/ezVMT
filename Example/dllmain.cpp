@@ -47,11 +47,19 @@ void MainThread(HMODULE hModpule) {
 
         if (pEngine && pEngine->GameViewport && pWorld && pWorld->PersistentLevel && pWorld->PersistentLevel->Actors[0]) {
             // 1. 创建钩子
-            ezVMT::CreateHook((void*)&hkPostRender, pEngine->GameViewport, g_PostRender_Index, (void**)&oPostRender, ezVMT::NO_Module_Stomping);
-            ezVMT::CreateHook((void*)&hkActorTick, pWorld->PersistentLevel->Actors[0], g_ActorTick_Index, (void**)&oActorTick);
+            ezVMT::HookStatus hkPostRender_Status = ezVMT::CreateHook((void*)&hkPostRender, pEngine->GameViewport, g_PostRender_Index, (void**)&oPostRender, ezVMT::NO_Module_Stomping/*, "8B C2 35 ? ? ? ? 44"*/);
+            ezVMT::HookStatus hkActorTick_Status = ezVMT::CreateHook((void*)&hkActorTick, pWorld->PersistentLevel->Actors[0], g_ActorTick_Index, (void**)&oActorTick, 0/*, "40 53 48 83 EC ? 0F B6 81 ? ? ? ? 48 8B D9 A8 ? 75 ? A8 ? 74"*/);
 
             // 2. 启用钩子
-            ezVMT::EnableHook(ezVMT::All_Hooks);
+            if (hkPostRender_Status == ezVMT::HookStatus::Ok) {
+				ezVMT::EnableHook((void*)&hkPostRender);
+            }
+
+			if (hkActorTick_Status == ezVMT::HookStatus::Ok) {
+				ezVMT::EnableHook((void*)&hkActorTick);
+			}
+
+            // ezVMT::EnableHook(ezVMT::All_Hooks);
             // ezVMT::EnableHook((void*)&hkPostRender);
             // ezVMT::EnableHook((void*)&hkActorTick);
 
